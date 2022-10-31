@@ -1,0 +1,14 @@
+[
+    {
+        "name": "Rust Projects",
+        "weight": 3
+    },
+    {
+        "name": "Music",
+        "weight": 3
+    },
+    {
+        "name": "Rust Flash Cards",
+        "weight": 7
+    }
+]
