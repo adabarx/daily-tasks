@@ -1,8 +1,10 @@
 #![allow(unused)]
-use chrono::{DateTime, Duration, NaiveDate, Utc};
+use chrono::{DateTime, Duration, NaiveDate, Utc, Local};
 use rand::prelude::Distribution;
 use serde::{Deserialize, Serialize};
 use serde_json::Result;
+use std::fs;
+use std::io::Write;
 use std::{fs::File, io::Read};
 use uuid::Uuid;
 use rand::Rng;
@@ -10,7 +12,12 @@ use rand::distributions::WeightedIndex;
 
 const CYCLE: usize = 7; // days per week
 
-#[derive(Serialize, Deserialize, Debug)]
+// TODO: import/export to history.json
+// TODO: migrate to surrealdb
+// PERF: 
+// HACK: 
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 struct Task {
     // id: Uuid,
     name: String,
@@ -19,9 +26,19 @@ struct Task {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct WorkDay {
-    date: NaiveDate,
-    tasks: Vec<Uuid>,
+    date: DateTime<Local>,
+    tasks: Vec<Task>,
 }
+
+ impl WorkDay {
+     fn new(tasks: Vec<Task>) -> Self {
+         Self {
+             date: chrono::offset::Local::now(),
+             tasks,
+         }
+     }
+ }
+
 
 fn import_tasks() -> Vec<Task> {
     let mut file = File::open("tasks.json")
@@ -32,6 +49,25 @@ fn import_tasks() -> Vec<Task> {
     let tasks: Vec<Task> = serde_json::from_str(&contents)
         .expect("Serde error");
     tasks
+}
+
+fn import_history() -> Vec<WorkDay> {
+    let mut file = File::open("history.json")
+        .expect("Can't find history file");
+    let mut contents = String::new();
+    file.read_to_string(&mut contents);
+
+    let history: Vec<WorkDay> = serde_json::from_str(&contents)
+        .expect("serde error");
+    history
+}
+
+fn write_to_history_json(chosen: &Vec<Task>, mut history: Vec<WorkDay>) -> Result<()> {
+    history.push(WorkDay::new(chosen.to_vec()));
+    let j = serde_json::to_string_pretty(&history)
+        .expect("serde error");
+    fs::write("history.json", j);
+    Ok(())
 }
 
 fn the_choosening(mut tasks: Vec<Task>) -> Vec<Task> {
@@ -81,6 +117,9 @@ fn the_choosening(mut tasks: Vec<Task>) -> Vec<Task> {
 fn main() {
     let tasks = import_tasks();
     let the_chosen = the_choosening(tasks);
+
+    let mut history = import_history();
+    write_to_history_json(&the_chosen, history);
 
     println!("\nTasks Today:\n");
     for ch in the_chosen.iter() {
