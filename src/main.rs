@@ -3,6 +3,8 @@ use chrono::{DateTime, Duration, NaiveDate, Utc, Local};
 use rand::prelude::Distribution;
 use serde::{Deserialize, Serialize};
 use serde_json::Result;
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::fs;
 use std::io::Write;
 use std::{fs::File, io::Read};
@@ -12,26 +14,24 @@ use rand::distributions::WeightedIndex;
 
 const CYCLE: usize = 7; // days per week
 
-// TODO: import/export to history.json
-// TODO: migrate to surrealdb
-// PERF: 
-// HACK: 
+// TODO: weigh chances by history
+// TODO: integrate with notion
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct Task {
-    // id: Uuid,
+    id: Uuid,
     name: String,
     weight: usize,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 struct WorkDay {
     date: DateTime<Local>,
-    tasks: Vec<Task>,
+    tasks: Vec<Uuid>,
 }
 
  impl WorkDay {
-     fn new(tasks: Vec<Task>) -> Self {
+     fn new(tasks: Vec<Uuid>) -> Self {
          Self {
              date: chrono::offset::Local::now(),
              tasks,
@@ -63,11 +63,29 @@ fn import_history() -> Vec<WorkDay> {
 }
 
 fn write_to_history_json(chosen: &Vec<Task>, mut history: Vec<WorkDay>) -> Result<()> {
-    history.push(WorkDay::new(chosen.to_vec()));
+    history.push(WorkDay::new(chosen.iter().map(|ch| ch.id).collect()));
     let j = serde_json::to_string_pretty(&history)
         .expect("serde error");
     fs::write("history.json", j);
     Ok(())
+}
+
+fn tasks_last_cycle(history: &Vec<WorkDay>) -> HashMap<Uuid, usize> {
+    let date_minus_cycle = chrono::offset::Local::now() - Duration::days(CYCLE as i64);
+    let history_last_cycle: Vec<&WorkDay> = history.iter()
+        .filter(|day| day.date >= date_minus_cycle)
+        .collect();
+
+    let mut task_map: HashMap<Uuid, usize> = HashMap::new();
+    for d in history_last_cycle.into_iter() {
+        for t in d.tasks.iter() {
+            task_map.entry(*t)
+                .and_modify(|counter| *counter += 1)
+                .or_insert(1);
+        }
+    }
+
+    task_map
 }
 
 fn the_choosening(mut tasks: Vec<Task>) -> Vec<Task> {
@@ -119,6 +137,9 @@ fn main() {
     let the_chosen = the_choosening(tasks);
 
     let mut history = import_history();
+    println!("history: {:?}", history);
+    println!();
+    println!("history_last_cycle: {:?}", tasks_last_cycle(&history));
     write_to_history_json(&the_chosen, history);
 
     println!("\nTasks Today:\n");
