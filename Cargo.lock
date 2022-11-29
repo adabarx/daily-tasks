@@ -784,6 +784,7 @@ dependencies = [
 name = "daily-tasks"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "chrono",
  "rand 0.8.5",
  "serde",
