@@ -31,9 +31,16 @@ impl WorkDay {
         }
     }
 }
-    
 
-pub fn tasks_last_cycle(history: &Vec<WorkDay>) -> HashMap<Uuid, usize> {
+pub fn generate_daily_tasks(tasks: &Vec<Task>, history: &Vec<WorkDay>) -> Vec<Task> {
+    let last_cycle = tasks_last_cycle(history);
+    let num_today = num_tasks_today(tasks, &last_cycle);
+    let weights = generate_weights(tasks, last_cycle);
+    
+    the_choosening(tasks.to_vec(), weights, num_today)
+}
+
+fn tasks_last_cycle(history: &Vec<WorkDay>) -> HashMap<Uuid, usize> {
     let date_minus_cycle = Local::now() - (Duration::seconds((CYCLE as i64 * 24 * 60 * 60) +
                                                              (Local::now().hour() as i64 * 60 * 60) +
                                                              (Local::now().minute() as i64 * 60) +
@@ -54,7 +61,7 @@ pub fn tasks_last_cycle(history: &Vec<WorkDay>) -> HashMap<Uuid, usize> {
     task_map
 }
 
-pub fn num_tasks_today(tasks: &Vec<Task>, last_cycle: &HashMap<Uuid, usize>) -> usize {
+fn num_tasks_today(tasks: &Vec<Task>, last_cycle: &HashMap<Uuid, usize>) -> usize {
     let target_avg: f64 = tasks.iter()
         .map(|task| task.weight)
         .sum();
@@ -65,7 +72,7 @@ pub fn num_tasks_today(tasks: &Vec<Task>, last_cycle: &HashMap<Uuid, usize>) -> 
     let target_avg = target_avg / CYCLE as f64;
     let current_avg = current_avg / CYCLE as f64;
 
-    let  mult = if current_avg == 0.0 {
+    let mult = if current_avg == 0.0 {
         target_avg * target_avg
     } else {
         target_avg / current_avg
@@ -84,7 +91,7 @@ pub fn num_tasks_today(tasks: &Vec<Task>, last_cycle: &HashMap<Uuid, usize>) -> 
     rv.floor() as usize
 }
 
-pub fn generate_weights(tasks: &Vec<Task>, last_cycle: HashMap<Uuid, usize>) -> HashMap<Uuid, usize> {
+fn generate_weights(tasks: &Vec<Task>, last_cycle: HashMap<Uuid, usize>) -> HashMap<Uuid, usize> {
     tasks.iter()
         .map(|task| {
             let base = match last_cycle.get(&task.id) {
@@ -100,7 +107,11 @@ pub fn generate_weights(tasks: &Vec<Task>, last_cycle: HashMap<Uuid, usize>) -> 
         .collect()
 }
 
-pub fn the_choosening(mut tasks: Vec<Task>, weights: HashMap<Uuid, usize>, num_tasks: usize) -> Vec<Task> {
+fn the_choosening(
+    mut tasks: Vec<Task>,
+    weights: HashMap<Uuid, usize>,
+    num_tasks: usize
+) -> Vec<Task> {
     let mut rng = rand::thread_rng();
 
     let mut the_chosen: Vec<Task> = Vec::new();

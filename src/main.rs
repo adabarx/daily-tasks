@@ -1,6 +1,10 @@
 mod daily_tasks;
 
-use crate::daily_tasks::*;
+use crate::daily_tasks::{
+    generate_daily_tasks,
+    Task,
+    WorkDay,
+};
 
 use anyhow::Result;
 use serde_json;
@@ -36,13 +40,7 @@ fn main() -> Result<()> {
 
     let history: Vec<WorkDay> = import_json_file("history.json")?;
 
-    let last_cycle = tasks_last_cycle(&history);
-
-    let num_today = num_tasks_today(&tasks, &last_cycle);
-
-    let weights = generate_weights(&tasks, last_cycle);
-
-    let the_chosen = the_choosening(tasks, weights, num_today);
+    let the_chosen = generate_daily_tasks(&tasks, &history);
 
     write_to_history_json(&the_chosen, history)?;
 
